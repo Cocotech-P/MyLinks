@@ -4,7 +4,7 @@ from supabase import Client, create_client
 
 st.set_page_config(
     page_title="MyLinks - Cloud Hub",
-    layout="wide",
+    layout="centered",
     initial_sidebar_state="collapsed",
 )
 
@@ -76,7 +76,7 @@ else:
   user_uuid = user.id
 
   # --- TOP HEADER & LOGOUT ---
-  head_col1, head_col2 = st.columns([4, 1])
+  head_col1, head_col2 = st.columns([3, 1])
   with head_col1:
     st.title("🌐 MyLinks Hub")
   with head_col2:
@@ -145,13 +145,14 @@ else:
 
   for idx, category in enumerate(all_categories):
     with selected_cat[idx]:
-      st.subheader(f"📂 {category}")
+      st.write("")
 
+      # Add New Item Expander
       with st.expander("➕ Add New Item in this Category"):
         with st.form(f"add_form_{category}", clear_on_submit=True):
           new_name = st.text_input("Link Name")
           new_search = st.text_input("Optional: Search Site URL")
-          new_kw = st.text_input("Link Key Words")
+          new_kw = st.text_input("Link Key Words / Description")
           new_url = st.text_input("Link URL or App")
           new_cat = st.text_input("Category", value=category)
 
@@ -182,25 +183,38 @@ else:
           resolved_target = resolve_input(
               link["url_or_keyword"], link["search_site"]
           )
+          description_text = link["url_or_keyword"]
 
-          # Responsive mobile row container
-          cols = st.columns([7, 1])
-          with cols[0]:
+          # Render card row with a 3-dots popover integrated inside the card header
+          card_col, pop_col = st.columns([9, 1])
+
+          with card_col:
             st.markdown(
                 f"""
-                        <div style="padding: 8px 0px; border-bottom: 1px solid rgba(150,150,150,0.2);">
-                            <a href="{resolved_target}" target="_blank" style="font-weight: bold; font-size: 1.05em; text-decoration: none;">{link['name']}</a>
-                            <div style="font-size: 0.85em; color: gray; display: flex; gap: 12px; margin-top: 2px;">
-                                <span><b>Search:</b> {link['search_site'] or 'Default'}</span>
-                                <span><b>Target:</b> {link['url_or_keyword']}</span>
+                        <a href="{resolved_target}" target="_blank" style="text-decoration: none;">
+                            <div style="
+                                background-color: rgba(255, 255, 255, 0.04);
+                                border: 1px solid rgba(150, 150, 150, 0.2);
+                                border-radius: 12px;
+                                padding: 16px 20px;
+                                text-align: center;
+                                margin-bottom: 4px;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                                transition: 0.2s;
+                            ">
+                                <div style="font-size: 1.1em; font-weight: 600; color: inherit;">🔗 {link['name']}</div>
                             </div>
+                        </a>
+                        <div style="font-size: 0.8em; color: gray; text-align: center; margin-bottom: 14px;">
+                            {description_text}
                         </div>
                         """,
                 unsafe_allow_html=True,
             )
 
-          with cols[1]:
-            with st.popover("⋮"):
+          with pop_col:
+            st.write("")  # alignment spacing
+            with st.popover("⋮", help="Edit or Delete"):
               st.write(f"**{link['name']}**")
               action_choice = st.radio(
                   "Action", ["Edit", "Delete"], key=f"action_{link['id']}"
