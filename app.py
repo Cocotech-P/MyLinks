@@ -280,9 +280,9 @@ else:
                 for link in links:
                     resolved_target = resolve_input(link["url_or_keyword"], link["search_site"])
                     
-                    # Card layout - stacked on mobile, side-by-side on desktop
-                    col_card, col_action = st.columns([0.85, 0.15]) if not is_mobile() else st.columns([1])
-                    
+                    # Card + action button on the same row, vertically centred
+                    col_card, col_action = st.columns([0.88, 0.12], vertical_alignment="center")
+
                     with col_card:
                         st.markdown(
                             f"""
@@ -295,20 +295,21 @@ else:
                             """,
                             unsafe_allow_html=True,
                         )
-                    
-                    if not is_mobile():
-                        with col_action:
-                            if st.button("⋮", key=f"menu_{link['id']}", help="Edit or delete"):
-                                st.session_state.editing_link_id = link['id']
-                    else:
-                        # On mobile, show edit/delete buttons below the card
-                        btn_col1, btn_col2 = st.columns(2)
-                        with btn_col1:
-                            if st.button("✏️ Edit", key=f"edit_{link['id']}", use_container_width=True):
-                                st.session_state.editing_link_id = link['id']
-                        with btn_col2:
-                            if st.button("🗑️ Delete", key=f"delete_{link['id']}", use_container_width=True):
-                                st.session_state.editing_link_id = f"confirm_del_{link['id']}"
+
+                    with col_action:
+                        with st.popover("⋮", use_container_width=True):
+                            st.markdown(f"**{link['name']}**")
+                            action_choice = st.radio(
+                                "Action", ["Edit", "Delete"], key=f"action_{link['id']}"
+                            )
+                            if action_choice == "Edit":
+                                if st.button("Open editor ↓", key=f"open_edit_{link['id']}", use_container_width=True):
+                                    st.session_state.editing_link_id = link['id']
+                                    st.rerun()
+                            elif action_choice == "Delete":
+                                if st.button("Confirm Delete", key=f"open_del_{link['id']}", use_container_width=True, type="primary"):
+                                    st.session_state.editing_link_id = f"confirm_del_{link['id']}"
+                                    st.rerun()
 
                     # --- EDIT MODAL ---
                     if st.session_state.editing_link_id == link['id']:
