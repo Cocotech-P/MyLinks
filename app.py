@@ -87,6 +87,7 @@ else:
 
   st.divider()
 
+
   # --- INPUT RESOLUTION HELPER ---
   def resolve_input(url_or_app: str, search_site: str) -> str:
     cleaned = url_or_app.strip()
@@ -97,7 +98,6 @@ else:
     if "." in cleaned and " " not in cleaned:
       return f"https://{cleaned}"
 
-    # If search site is specified, route through it, otherwise Google
     encoded_query = urllib.parse.quote(cleaned)
     if search_site and search_site.strip():
       site_cleaned = search_site.strip()
@@ -106,6 +106,7 @@ else:
       return f"{site_cleaned}?q={encoded_query}"
 
     return f"https://www.google.com/search?q={encoded_query}"
+
 
   # Fetch Data from Supabase
   try:
@@ -146,13 +147,10 @@ else:
     with selected_cat[idx]:
       st.subheader(f"📂 {category}")
 
-      # Global Add button or inline quick add
       with st.expander("➕ Add New Item in this Category"):
         with st.form(f"add_form_{category}", clear_on_submit=True):
           new_name = st.text_input("Link Name")
-          new_search = st.text_input(
-              "Optional: Search Site (e.g., https://duckduckgo.com)"
-          )
+          new_search = st.text_input("Optional: Search Site URL")
           new_kw = st.text_input("Link Key Words")
           new_url = st.text_input("Link URL or App")
           new_cat = st.text_input("Category", value=category)
@@ -172,7 +170,7 @@ else:
               except Exception as e:
                 st.error(f"Error saving: {e}")
             else:
-              st.error("Please fill required fields (Name, URL/App, Category).")
+              st.error("Please fill required fields.")
 
       st.write("")
 
@@ -180,53 +178,32 @@ else:
       if not links:
         st.info("No links found in this category.")
       else:
-        # Table Header Layout matching your sheet structure
-        h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns(
-            [2.2, 2.2, 2.2, 2.5, 0.6]
-        )
-        with h_col1:
-          st.markdown("**Link Name**")
-        with h_col2:
-          st.markdown("**Search Site**")
-        with h_col3:
-          st.markdown("**Key Words**")
-        with h_col4:
-          st.markdown("**URL or App**")
-        with h_col5:
-          st.markdown("**⚙️**")
-
-        st.divider()
-
         for link in links:
           resolved_target = resolve_input(
               link["url_or_keyword"], link["search_site"]
           )
 
-          row_col1, row_col2, row_col3, row_col4, row_col5 = st.columns(
-              [2.2, 2.2, 2.2, 2.5, 0.6]
-          )
+          # Responsive mobile row container
+          cols = st.columns([7, 1])
+          with cols[0]:
+            st.markdown(
+                f"""
+                        <div style="padding: 8px 0px; border-bottom: 1px solid rgba(150,150,150,0.2);">
+                            <a href="{resolved_target}" target="_blank" style="font-weight: bold; font-size: 1.05em; text-decoration: none;">{link['name']}</a>
+                            <div style="font-size: 0.85em; color: gray; display: flex; gap: 12px; margin-top: 2px;">
+                                <span><b>Search:</b> {link['search_site'] or 'Default'}</span>
+                                <span><b>Target:</b> {link['url_or_keyword']}</span>
+                            </div>
+                        </div>
+                        """,
+                unsafe_allow_html=True,
+            )
 
-          with row_col1:
-            st.markdown(f"[{link['name']}]({resolved_target})")
-
-          with row_col2:
-            st.text(link["search_site"] or "-")
-
-          with row_col3:
-            st.text(link["url_or_keyword"] if " " in link["url_or_keyword"] or "." not in link["url_or_keyword"] else "-")
-
-          with row_col4:
-            st.text(link["url_or_keyword"])
-
-          with row_col5:
-            # 3 dots menu popup for actions
+          with cols[1]:
             with st.popover("⋮"):
-              st.write(f"**Actions for {link['name']}**")
-
+              st.write(f"**{link['name']}**")
               action_choice = st.radio(
-                  "Select Action",
-                  ["Edit", "Delete"],
-                  key=f"action_{link['id']}",
+                  "Action", ["Edit", "Delete"], key=f"action_{link['id']}"
               )
 
               if action_choice == "Edit":
@@ -235,7 +212,6 @@ else:
                   up_search = st.text_input(
                       "Search Site", value=link["search_site"]
                   )
-                  up_kw = st.text_input("Key Words", value="")
                   up_url = st.text_input(
                       "URL or App", value=link["url_or_keyword"]
                   )
@@ -267,4 +243,4 @@ else:
                   except Exception as e:
                     st.error(f"Delete failed: {e}")
 
-          st.write("")
+      st.write("")
