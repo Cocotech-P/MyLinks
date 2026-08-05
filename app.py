@@ -123,6 +123,40 @@ else:
     categories = list(shortcuts.keys()) or ["General"]
     tabs = st.tabs(categories)
 
+    # --- CSS FOR FLOATING ⋮ ---
+    st.markdown(
+        """
+        <style>
+            .link-card {
+                position: relative;
+                background-color: rgba(255,255,255,0.04);
+                border:1px solid rgba(150,150,150,0.2);
+                border-radius:12px;
+                padding:12px 16px;
+                box-shadow:0 2px 4px rgba(0,0,0,0.02);
+                margin-bottom: 14px;
+            }
+            .menu-btn {
+                position: absolute;
+                top: 8px;
+                right: 10px;
+                background:none;
+                border:none;
+                font-size:22px;
+                cursor:pointer;
+                color:white;
+            }
+            .desc {
+                font-size:0.72em;
+                color:gray;
+                text-align:left;
+                margin-top:4px;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     # --- RENDER TABS ---
     for i, cat in enumerate(categories):
         with tabs[i]:
@@ -154,37 +188,24 @@ else:
             for link in shortcuts.get(cat, []):
                 target = resolve_input(link["url_or_keyword"], link["search_site"])
 
-                # INLINE ROW USING COLUMNS
-                card_col, menu_col = st.columns([12, 1])
+                # CARD WITH FLOATING ⋮
+                st.markdown(
+                    f"""
+                    <div class="link-card">
+                        <button class="menu-btn" onclick="window.location='?menu={link['id']}'">⋮</button>
 
-                with card_col:
-                    st.markdown(
-                        f"""
-                        <div style="
-                            background-color: rgba(255,255,255,0.04);
-                            border:1px solid rgba(150,150,150,0.2);
-                            border-radius:12px;
-                            padding:12px 16px;
-                            text-align:center;
-                            box-shadow:0 2px 4px rgba(0,0,0,0.02);
-                        ">
-                            <a href="{target}" target="_blank" style="text-decoration:none;">
-                                <div style="font-size:1.05em; font-weight:600;">🔗 {link['name']}</div>
-                            </a>
-                            <div style="font-size:0.72em; color:gray; text-align:left; margin-top:4px;">
-                                {link['url_or_keyword']}
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+                        <a href="{target}" target="_blank" style="text-decoration:none;">
+                            <div style="font-size:1.05em; font-weight:600;">🔗 {link['name']}</div>
+                        </a>
 
-                with menu_col:
-                    if st.button("⋮", key=f"menu_{link['id']}"):
-                        st.session_state.active_menu = link["id"]
+                        <div class="desc">{link['url_or_keyword']}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-                # MODAL FOR EDIT/DELETE
-                if st.session_state.get("active_menu") == link["id"]:
+                # OPEN MODAL IF MENU CLICKED
+                if st.query_params.get("menu") == str(link["id"]):
                     with st.modal(f"Manage: {link['name']}"):
                         action = st.radio("Action", ["Edit", "Delete"])
 
@@ -203,14 +224,14 @@ else:
                                         "category": up_cat,
                                     }).eq("id", link["id"]).execute()
                                     st.success("Updated!")
-                                    st.session_state.active_menu = None
+                                    st.query_params.clear()
                                     st.rerun()
 
                         if action == "Delete":
                             if st.button("Confirm Delete"):
                                 supabase.table("shortcuts").delete().eq("id", link["id"]).execute()
                                 st.success("Deleted!")
-                                st.session_state.active_menu = None
+                                st.query_params.clear()
                                 st.rerun()
 
             st.write("")
