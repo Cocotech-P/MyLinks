@@ -185,21 +185,37 @@ else:
           )
           description_text = link["url_or_keyword"]
 
-          # Native Streamlit columns with vertical alignment matching perfectly
-          col_btn, col_pop = st.columns([9, 1], vertical_alignment="center")
+          # Unified horizontal layout using columns with strict vertical alignment wrapper
+          col_main, col_pop = st.columns([9, 1])
 
-          with col_btn:
-            st.link_button(
-                f"🔗 {link['name']}",
-                url=resolved_target,
-                use_container_width=True,
-            )
+          with col_main:
             st.markdown(
-                f"<div style='font-size: 0.75em; color: gray; text-align: center; margin-top: -6px; margin-bottom: 8px;'>{description_text}</div>",
+                f"""
+                        <a href="{resolved_target}" target="_blank" style="text-decoration: none;">
+                            <div style="
+                                background-color: rgba(255, 255, 255, 0.04);
+                                border: 1px solid rgba(150, 150, 150, 0.2);
+                                border-radius: 12px;
+                                padding: 12px 16px;
+                                text-align: center;
+                                margin-bottom: 2px;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                            ">
+                                <div style="font-size: 1.05em; font-weight: 600; color: inherit;">🔗 {link['name']}</div>
+                            </div>
+                        </a>
+                        <div style="font-size: 0.75em; color: gray; text-align: center; margin-bottom: 8px;">
+                            {description_text}
+                        </div>
+                        """,
                 unsafe_allow_html=True,
             )
 
           with col_pop:
+            # Pushes the 3-dots button down slightly to align with the center of the link card
+            st.markdown(
+                '<div style="padding-top: 10px;">', unsafe_allow_html=True
+            )
             with st.popover("⋮"):
               st.write(f"**{link['name']}**")
               action_choice = st.radio(
@@ -242,5 +258,6 @@ else:
                     st.rerun()
                   except Exception as e:
                     st.error(f"Delete failed: {e}")
+            st.markdown("</div>", unsafe_allow_html=True)
 
       st.write("")
