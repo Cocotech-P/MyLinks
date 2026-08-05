@@ -185,8 +185,8 @@ else:
           )
           description_text = link["url_or_keyword"]
 
-          # Render card row with a 3-dots popover integrated inside the card header
-          card_col, pop_col = st.columns([9, 1])
+          # Compact inline row layout for mobile
+          card_col, pop_col = st.columns([8.5, 1.5])
 
           with card_col:
             st.markdown(
@@ -196,16 +196,15 @@ else:
                                 background-color: rgba(255, 255, 255, 0.04);
                                 border: 1px solid rgba(150, 150, 150, 0.2);
                                 border-radius: 12px;
-                                padding: 16px 20px;
+                                padding: 12px 16px;
                                 text-align: center;
-                                margin-bottom: 4px;
+                                margin-bottom: 2px;
                                 box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-                                transition: 0.2s;
                             ">
-                                <div style="font-size: 1.1em; font-weight: 600; color: inherit;">🔗 {link['name']}</div>
+                                <div style="font-size: 1.05em; font-weight: 600; color: inherit;">🔗 {link['name']}</div>
                             </div>
                         </a>
-                        <div style="font-size: 0.8em; color: gray; text-align: center; margin-bottom: 14px;">
+                        <div style="font-size: 0.75em; color: gray; text-align: center; margin-bottom: 10px;">
                             {description_text}
                         </div>
                         """,
@@ -213,8 +212,10 @@ else:
             )
 
           with pop_col:
-            st.write("")  # alignment spacing
-            with st.popover("⋮", help="Edit or Delete"):
+            st.markdown(
+                '<div style="margin-top: 14px;">', unsafe_allow_html=True
+            )
+            with st.popover("⋮"):
               st.write(f"**{link['name']}**")
               action_choice = st.radio(
                   "Action", ["Edit", "Delete"], key=f"action_{link['id']}"
@@ -256,5 +257,6 @@ else:
                     st.rerun()
                   except Exception as e:
                     st.error(f"Delete failed: {e}")
+            st.markdown("</div>", unsafe_allow_html=True)
 
       st.write("")
