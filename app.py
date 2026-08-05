@@ -272,4 +272,6 @@ else:
                                     st.error(f"Delete failed: {e}")
 
                     st.markdown('</div>', unsafe_allow_html=True)  # close menu
-                    st.markdown('</div>', unsafe_allow_html
+                    st.markdown('</div>', unsafe_allow_html=True)  # close row
+
+            st.write("")
