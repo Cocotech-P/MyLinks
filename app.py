@@ -144,11 +144,14 @@ else:
                 align-items: center;
                 justify-content: space-between;
                 width: 100%;
-                gap: 8px;
-                margin-bottom: 6px;
+                gap: 12px;
+                margin-bottom: 10px;
             }
             .link-card {
                 flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
             }
             .link-menu {
                 flex-shrink: 0;
@@ -203,7 +206,7 @@ else:
                     # --- FLEXBOX ROW ---
                     st.markdown('<div class="link-row">', unsafe_allow_html=True)
 
-                    # CARD
+                    # CARD + DESCRIPTION (same flex item)
                     st.markdown(
                         f"""
                         <div class="link-card">
@@ -214,55 +217,11 @@ else:
                                     border-radius: 12px;
                                     padding: 12px 16px;
                                     text-align: center;
-                                    margin-bottom: 2px;
                                     box-shadow: 0 2px 4px rgba(0,0,0,0.02);
                                 ">
                                     <div style="font-size: 1.05em; font-weight: 600; color: inherit;">🔗 {link['name']}</div>
                                 </div>
                             </a>
-                            <div style="font-size: 0.75em; color: gray; text-align: center; margin-bottom: 8px;">
+                            <div style="font-size: 0.75em; color: gray; text-align: center;">
                                 {description_text}
                             </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-                    # MENU
-                    st.markdown('<div class="link-menu">', unsafe_allow_html=True)
-                    with st.popover("⋮"):
-                        st.write(f"**{link['name']}**")
-                        action_choice = st.radio(
-                            "Action", ["Edit", "Delete"], key=f"action_{link['id']}"
-                        )
-
-                        if action_choice == "Edit":
-                            with st.form(f"edit_form_{link['id']}"):
-                                up_name = st.text_input("Link Name", value=link["name"])
-                                up_search = st.text_input("Search Site", value=link["search_site"])
-                                up_url = st.text_input("URL or App", value=link["url_or_keyword"])
-                                up_cat = st.text_input("Category", value=link["category"])
-
-                                if st.form_submit_button("Save Changes"):
-                                    try:
-                                        supabase.table("shortcuts").update({
-                                            "name": up_name,
-                                            "search_site": up_search,
-                                            "url_or_keyword": up_url,
-                                            "category": up_cat,
-                                        }).eq("id", link["id"]).execute()
-                                        st.success("Updated!")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Update failed: {e}")
-
-                        elif action_choice == "Delete":
-                            if st.button("Confirm Delete", key=f"confirm_del_{link['id']}"):
-                                try:
-                                    supabase.table("shortcuts").delete().eq("id", link["id"]).execute()
-                                    st.success("Deleted!")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Delete failed: {e}")
-
-                    st.markdown('</div>', unsafe_allow_html=True)  # close menu
