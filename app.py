@@ -25,7 +25,7 @@ if not st.session_state.user:
     if "otp_sent" not in st.session_state:
         st.session_state.otp_sent = False
 
-    if not st.session_session_state.otp_sent:
+    if not st.session_state.otp_sent:
         with st.form("request_otp_form"):
             email = st.text_input("Email Address")
             if st.form_submit_button("Send Login Code"):
@@ -82,4 +82,187 @@ else:
     st.divider()
 
     # --- INPUT RESOLUTION HELPER ---
-    def resolve_input(url_or_app: str, search_site: str
+    def resolve_input(url_or_app: str, search_site: str) -> str:
+        cleaned = url_or_app.strip()
+        if cleaned.lower().startswith(
+            ("http://", "https://", "mailto:", "tel:", "spotify:", "zoommtg:")
+        ):
+            return cleaned
+        if "." in cleaned and " " not in cleaned:
+            return f"https://{cleaned}"
+
+        encoded_query = urllib.parse.quote(cleaned)
+        if search_site and search_site.strip():
+            site_cleaned = search_site.strip()
+            if not site_cleaned.startswith("http"):
+                site_cleaned = f"https://{site_cleaned}"
+            return f"{site_cleaned}?q={encoded_query}"
+
+        return f"https://www.google.com/search?q={encoded_query}"
+
+    # Fetch Data from Supabase
+    try:
+        response = (
+            supabase.table("shortcuts")
+            .select("*")
+            .eq("user_id", user_uuid)
+            .order("created_at")
+            .execute()
+        )
+        rows = response.data
+    except Exception as e:
+        st.error(f"Failed to load links: {e}")
+        rows = []
+
+    # Group by Category
+    user_shortcuts = {}
+    for row in rows:
+        cat = row["category"] or "General"
+        if cat not in user_shortcuts:
+            user_shortcuts[cat] = []
+        user_shortcuts[cat].append({
+            "id": row["id"],
+            "name": row["name"],
+            "search_site": row.get("search_site", ""),
+            "url_or_keyword": row["url_or_keyword"],
+            "category": cat,
+        })
+
+    all_categories = list(user_shortcuts.keys())
+    if not all_categories:
+        all_categories = ["General"]
+
+    # --- CATEGORY TABS ---
+    selected_cat = st.tabs(all_categories)
+
+    # --- MOBILE-FRIENDLY FLEXBOX CSS ---
+    st.markdown(
+        """
+        <style>
+            .link-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                width: 100%;
+                gap: 8px;
+                margin-bottom: 6px;
+            }
+            .link-card {
+                flex: 1;
+            }
+            .link-menu {
+                flex-shrink: 0;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    for idx, category in enumerate(all_categories):
+        with selected_cat[idx]:
+            st.write("")
+
+            # Add New Item Expander
+            with st.expander("➕ Add New Item in this Category"):
+                with st.form(f"add_form_{category}", clear_on_submit=True):
+                    new_name = st.text_input("Link Name")
+                    new_search = st.text_input("Optional: Search Site URL")
+                    new_kw = st.text_input("Link Key Words / Description")
+                    new_url = st.text_input("Link URL or App")
+                    new_cat = st.text_input("Category", value=category)
+
+                    if st.form_submit_button("Save Item", type="primary"):
+                        if new_name and new_url and new_cat:
+                            try:
+                                supabase.table("shortcuts").insert({
+                                    "user_id": user_uuid,
+                                    "category": new_cat,
+                                    "name": new_name,
+                                    "search_site": new_search,
+                                    "url_or_keyword": new_url,
+                                }).execute()
+                                st.success("Added successfully!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error saving: {e}")
+                        else:
+                            st.error("Please fill required fields.")
+
+            st.write("")
+
+            links = user_shortcuts.get(category, [])
+            if not links:
+                st.info("No links found in this category.")
+            else:
+                for link in links:
+                    resolved_target = resolve_input(
+                        link["url_or_keyword"], link["search_site"]
+                    )
+                    description_text = link["url_or_keyword"]
+
+                    # --- FLEXBOX ROW ---
+                    st.markdown('<div class="link-row">', unsafe_allow_html=True)
+
+                    # CARD
+                    st.markdown(
+                        f"""
+                        <div class="link-card">
+                            <a href="{resolved_target}" target="_blank" style="text-decoration: none; display: block;">
+                                <div style="
+                                    background-color: rgba(255, 255, 255, 0.04);
+                                    border: 1px solid rgba(150, 150, 150, 0.2);
+                                    border-radius: 12px;
+                                    padding: 12px 16px;
+                                    text-align: center;
+                                    margin-bottom: 2px;
+                                    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                                ">
+                                    <div style="font-size: 1.05em; font-weight: 600; color: inherit;">🔗 {link['name']}</div>
+                                </div>
+                            </a>
+                            <div style="font-size: 0.75em; color: gray; text-align: center; margin-bottom: 8px;">
+                                {description_text}
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    # MENU
+                    st.markdown('<div class="link-menu">', unsafe_allow_html=True)
+                    with st.popover("⋮"):
+                        st.write(f"**{link['name']}**")
+                        action_choice = st.radio(
+                            "Action", ["Edit", "Delete"], key=f"action_{link['id']}"
+                        )
+
+                        if action_choice == "Edit":
+                            with st.form(f"edit_form_{link['id']}"):
+                                up_name = st.text_input("Link Name", value=link["name"])
+                                up_search = st.text_input("Search Site", value=link["search_site"])
+                                up_url = st.text_input("URL or App", value=link["url_or_keyword"])
+                                up_cat = st.text_input("Category", value=link["category"])
+
+                                if st.form_submit_button("Save Changes"):
+                                    try:
+                                        supabase.table("shortcuts").update({
+                                            "name": up_name,
+                                            "search_site": up_search,
+                                            "url_or_keyword": up_url,
+                                            "category": up_cat,
+                                        }).eq("id", link["id"]).execute()
+                                        st.success("Updated!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Update failed: {e}")
+
+                        elif action_choice == "Delete":
+                            if st.button("Confirm Delete", key=f"confirm_del_{link['id']}"):
+                                try:
+                                    supabase.table("shortcuts").delete().eq("id", link["id"]).execute()
+                                    st.success("Deleted!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Delete failed: {e}")
+
+                    st.markdown('</div>', unsafe_allow_html=True)  # close menu
