@@ -185,10 +185,10 @@ else:
           )
           description_text = link["url_or_keyword"]
 
-          # Compact inline row layout for mobile
-          card_col, pop_col = st.columns([8.5, 1.5])
+          # Single unified layout container to keep everything compact
+          col_card, col_btn = st.columns([8.8, 1.2])
 
-          with card_col:
+          with col_card:
             st.markdown(
                 f"""
                         <a href="{resolved_target}" target="_blank" style="text-decoration: none;">
@@ -204,17 +204,14 @@ else:
                                 <div style="font-size: 1.05em; font-weight: 600; color: inherit;">🔗 {link['name']}</div>
                             </div>
                         </a>
-                        <div style="font-size: 0.75em; color: gray; text-align: center; margin-bottom: 10px;">
+                        <div style="font-size: 0.75em; color: gray; text-align: center; margin-bottom: 8px;">
                             {description_text}
                         </div>
                         """,
                 unsafe_allow_html=True,
             )
 
-          with pop_col:
-            st.markdown(
-                '<div style="margin-top: 14px;">', unsafe_allow_html=True
-            )
+          with col_btn:
             with st.popover("⋮"):
               st.write(f"**{link['name']}**")
               action_choice = st.radio(
@@ -257,6 +254,5 @@ else:
                     st.rerun()
                   except Exception as e:
                     st.error(f"Delete failed: {e}")
-            st.markdown("</div>", unsafe_allow_html=True)
 
       st.write("")
