@@ -123,73 +123,6 @@ else:
     categories = list(shortcuts.keys()) or ["General"]
     tabs = st.tabs(categories)
 
-    # --- INLINE MENU CSS ---
-    st.markdown(
-        """
-        <style>
-            .link-row {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                width: 100%;
-                gap: 12px;
-                margin-bottom: 12px;
-            }
-            .link-card {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-            }
-            .desc {
-                font-size: 0.72em;
-                color: gray;
-                text-align: left;
-                margin-top: 4px;
-            }
-            .menu-btn {
-                background:none;
-                border:none;
-                font-size:22px;
-                cursor:pointer;
-                padding:0;
-                margin:0;
-            }
-            .menu-popup {
-                display:none;
-                position:absolute;
-                background:#222;
-                padding:10px;
-                border-radius:8px;
-                border:1px solid #444;
-                z-index:9999;
-                color:white;
-            }
-            .menu-popup button {
-                width:100%;
-                margin-top:6px;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # --- ACTION HANDLER ---
-    params = st.query_params
-    if "action" in params and "id" in params:
-        action = params["action"]
-        item_id = params["id"]
-
-        if action == "delete":
-            supabase.table("shortcuts").delete().eq("id", item_id).execute()
-            st.success("Deleted!")
-            st.query_params.clear()
-            st.rerun()
-
-        if action == "edit":
-            st.session_state.edit_id = item_id
-            st.query_params.clear()
-            st.rerun()
-
     # --- RENDER TABS ---
     for i, cat in enumerate(categories):
         with tabs[i]:
@@ -221,56 +154,63 @@ else:
             for link in shortcuts.get(cat, []):
                 target = resolve_input(link["url_or_keyword"], link["search_site"])
 
-                # --- INLINE ROW ---
-                st.markdown('<div class="link-row">', unsafe_allow_html=True)
+                # INLINE ROW USING COLUMNS
+                card_col, menu_col = st.columns([12, 1])
 
-                # CARD
-                st.markdown(
-                    f"""
-                    <div class="link-card">
-                        <a href="{target}" target="_blank" style="text-decoration:none;">
-                            <div style="
-                                background-color: rgba(255,255,255,0.04);
-                                border:1px solid rgba(150,150,150,0.2);
-                                border-radius:12px;
-                                padding:12px 16px;
-                                text-align:center;
-                                box-shadow:0 2px 4px rgba(0,0,0,0.02);
-                            ">
+                with card_col:
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background-color: rgba(255,255,255,0.04);
+                            border:1px solid rgba(150,150,150,0.2);
+                            border-radius:12px;
+                            padding:12px 16px;
+                            text-align:center;
+                            box-shadow:0 2px 4px rgba(0,0,0,0.02);
+                        ">
+                            <a href="{target}" target="_blank" style="text-decoration:none;">
                                 <div style="font-size:1.05em; font-weight:600;">🔗 {link['name']}</div>
+                            </a>
+                            <div style="font-size:0.72em; color:gray; text-align:left; margin-top:4px;">
+                                {link['url_or_keyword']}
                             </div>
-                        </a>
-                        <div class="desc">{link['url_or_keyword']}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
-                # MENU BUTTON + POPUP
-                menu_html = f"""
-                <div>
-                    <button class="menu-btn" id="btn_{link['id']}">⋮</button>
-                    <div class="menu-popup" id="popup_{link['id']}">
-                        <b>{link['name']}</b><br>
-                        <a href="?action=edit&id={link['id']}">
-                            <button>Edit</button>
-                        </a>
-                        <a href="?action=delete&id={link['id']}">
-                            <button>Delete</button>
-                        </a>
-                    </div>
-                </div>
+                with menu_col:
+                    if st.button("⋮", key=f"menu_{link['id']}"):
+                        st.session_state.active_menu = link["id"]
 
-                <script>
-                document.getElementById("btn_{link['id']}").onclick = function() {{
-                    const p = document.getElementById("popup_{link['id']}");
-                    p.style.display = (p.style.display === "block") ? "none" : "block";
-                }};
-                </script>
-                """
+                # MODAL FOR EDIT/DELETE
+                if st.session_state.get("active_menu") == link["id"]:
+                    with st.modal(f"Manage: {link['name']}"):
+                        action = st.radio("Action", ["Edit", "Delete"])
 
-                st.markdown(menu_html, unsafe_allow_html=True)
+                        if action == "Edit":
+                            with st.form(f"edit_{link['id']}"):
+                                up_name = st.text_input("Name", link["name"])
+                                up_search = st.text_input("Search Site", link["search_site"])
+                                up_url = st.text_input("URL/Keyword", link["url_or_keyword"])
+                                up_cat = st.text_input("Category", link["category"])
 
-                st.markdown('</div>', unsafe_allow_html=True)  # close row
+                                if st.form_submit_button("Save"):
+                                    supabase.table("shortcuts").update({
+                                        "name": up_name,
+                                        "search_site": up_search,
+                                        "url_or_keyword": up_url,
+                                        "category": up_cat,
+                                    }).eq("id", link["id"]).execute()
+                                    st.success("Updated!")
+                                    st.session_state.active_menu = None
+                                    st.rerun()
+
+                        if action == "Delete":
+                            if st.button("Confirm Delete"):
+                                supabase.table("shortcuts").delete().eq("id", link["id"]).execute()
+                                st.success("Deleted!")
+                                st.session_state.active_menu = None
+                                st.rerun()
 
             st.write("")
