@@ -185,13 +185,13 @@ else:
           )
           description_text = link["url_or_keyword"]
 
-          # Unified horizontal layout using columns with strict vertical alignment wrapper
-          col_main, col_pop = st.columns([9, 1])
+          # Single unified layout container with the card and popup menu inline
+          card_col, pop_col = st.columns([10, 1], vertical_alignment="center")
 
-          with col_main:
+          with card_col:
             st.markdown(
                 f"""
-                        <a href="{resolved_target}" target="_blank" style="text-decoration: none;">
+                        <a href="{resolved_target}" target="_blank" style="text-decoration: none; display: block;">
                             <div style="
                                 background-color: rgba(255, 255, 255, 0.04);
                                 border: 1px solid rgba(150, 150, 150, 0.2);
@@ -211,11 +211,7 @@ else:
                 unsafe_allow_html=True,
             )
 
-          with col_pop:
-            # Pushes the 3-dots button down slightly to align with the center of the link card
-            st.markdown(
-                '<div style="padding-top: 10px;">', unsafe_allow_html=True
-            )
+          with pop_col:
             with st.popover("⋮"):
               st.write(f"**{link['name']}**")
               action_choice = st.radio(
@@ -258,6 +254,5 @@ else:
                     st.rerun()
                   except Exception as e:
                     st.error(f"Delete failed: {e}")
-            st.markdown("</div>", unsafe_allow_html=True)
 
       st.write("")
