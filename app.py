@@ -77,9 +77,9 @@ else:
 
 
   # --- INPUT RESOLUTION HELPER ---
-  # Searches within the URL/App for the Key Words
+  # Searches within the URL/App for the Key Words safely handling None types
   def resolve_input(search_site: str, keywords: str) -> str:
-    base = search_site.strip()
+    base = (search_site or "").strip()
 
     # Determine base target URL/App scheme
     if base.lower().startswith(
@@ -93,8 +93,9 @@ else:
       target = f"https://www.google.com/search?q={encoded_query}"
 
     # If Key Words are provided, search within the URL/App for them
-    if keywords and keywords.strip():
-      kw_encoded = urllib.parse.quote(keywords.strip())
+    kw_str = (keywords or "").strip()
+    if kw_str:
+      kw_encoded = urllib.parse.quote(kw_str)
       if "?" in target:
         target = f"{target}&q={kw_encoded}"
       else:
@@ -128,7 +129,7 @@ else:
     user_shortcuts[cat].append({
         "id": row["id"],
         "name": row["name"],
-        "search_site": row["search_site"],
+        "search_site": row.get("search_site", ""),
         "keywords": row.get("keywords", ""),
         "category": cat,
     })
@@ -196,9 +197,12 @@ else:
       with st.form("sidebar_edit_form"):
         up_name = st.text_input("Link Name", value=selected_link["name"])
         up_kw = st.text_input(
-            "Optional: Key Words", value=selected_link.get("keywords", "")
+            "Optional: Key Words", value=selected_link.get("keywords", "") or ""
         )
-        up_url = st.text_input("Link URL or App", value=selected_link["search_site"])
+        up_url = st.text_input(
+            "Link URL or App",
+            value=selected_link.get("search_site", "") or "",
+        )
         up_cat = st.text_input("Category", value=selected_link["category"])
 
         col_save, col_del = st.columns(2)
@@ -247,7 +251,7 @@ else:
       else:
         for link in links:
           resolved_target = resolve_input(
-              link["search_site"], link.get("keywords", "")
+              link.get("search_site", ""), link.get("keywords", "")
           )
 
           # Display ONLY the Link Name cleanly as a single-line button item
