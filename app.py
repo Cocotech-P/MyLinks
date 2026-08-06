@@ -77,8 +77,9 @@ else:
 
 
   # --- INPUT RESOLUTION HELPER ---
-  def resolve_input(url_or_app: str, keywords: str) -> str:
-    base = url_or_app.strip()
+  # Searches within the URL/App for the Key Words
+  def resolve_input(search_site: str, keywords: str) -> str:
+    base = search_site.strip()
 
     # Determine base target URL/App scheme
     if base.lower().startswith(
@@ -91,7 +92,7 @@ else:
       encoded_query = urllib.parse.quote(base)
       target = f"https://www.google.com/search?q={encoded_query}"
 
-    # If keywords are provided, combine them into the target URL search parameter
+    # If Key Words are provided, search within the URL/App for them
     if keywords and keywords.strip():
       kw_encoded = urllib.parse.quote(keywords.strip())
       if "?" in target:
@@ -116,7 +117,7 @@ else:
     st.error(f"Failed to load links: {e}")
     rows = []
 
-  # Group by Category
+  # Group by Category using exact schema fields
   user_shortcuts = {}
   all_cats_set = set()
   for row in rows:
@@ -127,8 +128,8 @@ else:
     user_shortcuts[cat].append({
         "id": row["id"],
         "name": row["name"],
+        "search_site": row["search_site"],
         "keywords": row.get("keywords", ""),
-        "url_or_keyword": row["url_or_keyword"],
         "category": cat,
     })
 
@@ -171,8 +172,8 @@ else:
                 "user_id": user_uuid,
                 "category": target_cat,
                 "name": new_name,
+                "search_site": new_url,
                 "keywords": new_kw,
-                "url_or_keyword": new_url,
             }).execute()
             st.success("Added successfully!")
             st.rerun()
@@ -197,9 +198,7 @@ else:
         up_kw = st.text_input(
             "Optional: Key Words", value=selected_link.get("keywords", "")
         )
-        up_url = st.text_input(
-            "URL or App", value=selected_link["url_or_keyword"]
-        )
+        up_url = st.text_input("Link URL or App", value=selected_link["search_site"])
         up_cat = st.text_input("Category", value=selected_link["category"])
 
         col_save, col_del = st.columns(2)
@@ -208,8 +207,8 @@ else:
             try:
               supabase.table("shortcuts").update({
                   "name": up_name,
+                  "search_site": up_url,
                   "keywords": up_kw,
-                  "url_or_keyword": up_url,
                   "category": up_cat,
               }).eq("id", selected_link["id"]).execute()
               st.success("Updated!")
@@ -230,7 +229,7 @@ else:
       st.info("No links available to edit.")
 
   # --- MAIN SCREEN ---
-  st.title("🌐 MyLinks")
+  st.title("🌐 MyLinks Hub")
 
   # Category Tabs across the top
   selected_cat = st.tabs(all_categories)
@@ -248,10 +247,10 @@ else:
       else:
         for link in links:
           resolved_target = resolve_input(
-              link["url_or_keyword"], link.get("keywords", "")
+              link["search_site"], link.get("keywords", "")
           )
 
-          # Display ONLY the Link Name as a clean single-line button item
+          # Display ONLY the Link Name cleanly as a single-line button item
           st.link_button(
               f"🔗 {link['name']}",
               url=resolved_target,
