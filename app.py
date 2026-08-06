@@ -75,18 +75,6 @@ else:
   user = st.session_state.user
   user_uuid = user.id
 
-  # --- TOP HEADER & LOGOUT ---
-  head_col1, head_col2 = st.columns([3, 1])
-  with head_col1:
-    st.title("🌐 MyLinks Hub")
-  with head_col2:
-    if st.button("🚪 Log Out"):
-      supabase.auth.sign_out()
-      st.session_state.user = None
-      st.rerun()
-
-  st.divider()
-
 
   # --- INPUT RESOLUTION HELPER ---
   def resolve_input(url_or_app: str, search_site: str) -> str:
@@ -124,8 +112,10 @@ else:
 
   # Group by Category
   user_shortcuts = {}
+  all_cats_set = set()
   for row in rows:
     cat = row["category"] or "General"
+    all_cats_set.add(cat)
     if cat not in user_shortcuts:
       user_shortcuts[cat] = []
     user_shortcuts[cat].append({
@@ -136,123 +126,132 @@ else:
         "category": cat,
     })
 
-  all_categories = list(user_shortcuts.keys())
+  all_categories = sorted(list(all_cats_set))
   if not all_categories:
     all_categories = ["General"]
 
-  # --- CATEGORY TABS AT THE TOP ---
+  # --- SIDEBAR (HAMBURGER MENU) FOR SETTINGS, ADD & EDIT ---
+  with st.sidebar:
+    st.title("⚙️ Management")
+    if st.button("🚪 Log Out", use_container_width=True):
+      supabase.auth.sign_out()
+      st.session_state.user = None
+      st.rerun()
+
+    st.divider()
+
+    # 1. Add New Item
+    st.subheader("➕ Add New Link")
+    with st.form("sidebar_add_form", clear_on_submit=True):
+      new_name = st.text_input("Link Name")
+      new_search = st.text_input("Optional: Search Site URL")
+      new_kw = st.text_input("Link Key Words / Description")
+      new_url = st.text_input("Link URL or App")
+      # Selectbox to pick existing category or type a new one
+      new_cat = st.selectbox(
+          "Category", options=all_categories + ["+ Create New Category"]
+      )
+      custom_cat = ""
+      if new_cat == "+ Create New Category":
+        custom_cat = st.text_input("New Category Name")
+
+      if st.form_submit_button("Save Item", type="primary"):
+        target_cat = (
+            custom_cat.strip()
+            if new_cat == "+ Create New Category"
+            else new_cat
+        )
+        if new_name and new_url and target_cat:
+          try:
+            supabase.table("shortcuts").insert({
+                "user_id": user_uuid,
+                "category": target_cat,
+                "name": new_name,
+                "search_site": new_search,
+                "url_or_keyword": new_url,
+            }).execute()
+            st.success("Added successfully!")
+            st.rerun()
+          except Exception as e:
+            st.error(f"Error saving: {e}")
+        else:
+          st.error("Please fill required fields.")
+
+    st.divider()
+
+    # 2. Edit / Delete Existing Items
+    st.subheader("✏️ Edit or Delete")
+    if rows:
+      link_options = {f"{r['name']} ({r['category']})": r for r in rows}
+      selected_link_label = st.selectbox(
+          "Select Link to Manage", options=list(link_options.keys())
+      )
+      selected_link = link_options[selected_link_label]
+
+      with st.form("sidebar_edit_form"):
+        up_name = st.text_input("Link Name", value=selected_link["name"])
+        up_search = st.text_input(
+            "Search Site", value=selected_link.get("search_site", "")
+        )
+        up_url = st.text_input(
+            "URL or App", value=selected_link["url_or_keyword"]
+        )
+        up_cat = st.text_input("Category", value=selected_link["category"])
+
+        col_save, col_del = st.columns(2)
+        with col_save:
+          if st.form_submit_button("Save Changes"):
+            try:
+              supabase.table("shortcuts").update({
+                  "name": up_name,
+                  "search_site": up_search,
+                  "url_or_keyword": up_url,
+                  "category": up_cat,
+              }).eq("id", selected_link["id"]).execute()
+              st.success("Updated!")
+              st.rerun()
+            except Exception as e:
+              st.error(f"Update failed: {e}")
+        with col_del:
+          if st.form_submit_button("Delete Item"):
+            try:
+              supabase.table("shortcuts").delete().eq(
+                  "id", selected_link["id"]
+              ).execute()
+              st.success("Deleted!")
+              st.rerun()
+            except Exception as e:
+              st.error(f"Delete failed: {e}")
+    else:
+      st.info("No links available to edit.")
+
+  # --- MAIN SCREEN ---
+  st.title("🌐 MyLinks Hub")
+
+  # Category Tabs across the top
   selected_cat = st.tabs(all_categories)
 
   for idx, category in enumerate(all_categories):
     with selected_cat[idx]:
       st.write("")
-
-      # Add New Item Expander
-      with st.expander("➕ Add New Item in this Category"):
-        with st.form(f"add_form_{category}", clear_on_submit=True):
-          new_name = st.text_input("Link Name")
-          new_search = st.text_input("Optional: Search Site URL")
-          new_kw = st.text_input("Link Key Words / Description")
-          new_url = st.text_input("Link URL or App")
-          new_cat = st.text_input("Category", value=category)
-
-          if st.form_submit_button("Save Item", type="primary"):
-            if new_name and new_url and new_cat:
-              try:
-                supabase.table("shortcuts").insert({
-                    "user_id": user_uuid,
-                    "category": new_cat,
-                    "name": new_name,
-                    "search_site": new_search,
-                    "url_or_keyword": new_url,
-                }).execute()
-                st.success("Added successfully!")
-                st.rerun()
-              except Exception as e:
-                st.error(f"Error saving: {e}")
-            else:
-              st.error("Please fill required fields.")
-
-      st.write("")
-
       links = user_shortcuts.get(category, [])
+
       if not links:
-        st.info("No links found in this category.")
+        st.info(
+            f"No links found in '{category}'. Use the sidebar menu (☰) to add"
+            " items."
+        )
       else:
         for link in links:
           resolved_target = resolve_input(
               link["url_or_keyword"], link["search_site"]
           )
-          description_text = link["url_or_keyword"]
 
-          # Single unified layout container with the card and popup menu inline
-          card_col, pop_col = st.columns([10, 1], vertical_alignment="center")
-
-          with card_col:
-            st.markdown(
-                f"""
-                        <a href="{resolved_target}" target="_blank" style="text-decoration: none; display: block;">
-                            <div style="
-                                background-color: rgba(255, 255, 255, 0.04);
-                                border: 1px solid rgba(150, 150, 150, 0.2);
-                                border-radius: 12px;
-                                padding: 12px 16px;
-                                text-align: center;
-                                margin-bottom: 2px;
-                                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-                            ">
-                                <div style="font-size: 1.05em; font-weight: 600; color: inherit;">🔗 {link['name']}</div>
-                            </div>
-                        </a>
-                        <div style="font-size: 0.75em; color: gray; text-align: center; margin-bottom: 8px;">
-                            {description_text}
-                        </div>
-                        """,
-                unsafe_allow_html=True,
-            )
-
-          with pop_col:
-            with st.popover("⋮"):
-              st.write(f"**{link['name']}**")
-              action_choice = st.radio(
-                  "Action", ["Edit", "Delete"], key=f"action_{link['id']}"
-              )
-
-              if action_choice == "Edit":
-                with st.form(f"edit_form_{link['id']}"):
-                  up_name = st.text_input("Link Name", value=link["name"])
-                  up_search = st.text_input(
-                      "Search Site", value=link["search_site"]
-                  )
-                  up_url = st.text_input(
-                      "URL or App", value=link["url_or_keyword"]
-                  )
-                  up_cat = st.text_input("Category", value=link["category"])
-
-                  if st.form_submit_button("Save Changes"):
-                    try:
-                      supabase.table("shortcuts").update({
-                          "name": up_name,
-                          "search_site": up_search,
-                          "url_or_keyword": up_url,
-                          "category": up_cat,
-                      }).eq("id", link["id"]).execute()
-                      st.success("Updated!")
-                      st.rerun()
-                    except Exception as e:
-                      st.error(f"Update failed: {e}")
-
-              elif action_choice == "Delete":
-                if st.button(
-                    "Confirm Delete", key=f"confirm_del_{link['id']}"
-                ):
-                  try:
-                    supabase.table("shortcuts").delete().eq(
-                        "id", link["id"]
-                    ).execute()
-                    st.success("Deleted!")
-                    st.rerun()
-                  except Exception as e:
-                    st.error(f"Delete failed: {e}")
+          # Clean single-line layout utilizing a native Streamlit link button per row
+          st.link_button(
+              f"🔗 {link['name']} — {link['url_or_keyword']}",
+              url=resolved_target,
+              use_container_width=True,
+          )
 
       st.write("")
