@@ -76,7 +76,7 @@ else:
   user_uuid = user.id
 
 
-  # --- INPUT RESOLUTION HELPER (Combines URL/App with Key Words) ---
+  # --- INPUT RESOLUTION HELPER ---
   def resolve_input(url_or_app: str, keywords: str) -> str:
     base = url_or_app.strip()
 
@@ -94,7 +94,6 @@ else:
     # If keywords are provided, combine them into the target URL search parameter
     if keywords and keywords.strip():
       kw_encoded = urllib.parse.quote(keywords.strip())
-      # If the target already has query parameters or needs a search query append
       if "?" in target:
         target = f"{target}&q={kw_encoded}"
       else:
