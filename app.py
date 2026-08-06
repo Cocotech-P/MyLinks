@@ -76,24 +76,31 @@ else:
   user_uuid = user.id
 
 
-  # --- INPUT RESOLUTION HELPER ---
-  def resolve_input(url_or_app: str, search_site: str) -> str:
-    cleaned = url_or_app.strip()
-    if cleaned.lower().startswith(
+  # --- INPUT RESOLUTION HELPER (Combines URL/App with Key Words) ---
+  def resolve_input(url_or_app: str, keywords: str) -> str:
+    base = url_or_app.strip()
+
+    # Determine base target URL/App scheme
+    if base.lower().startswith(
         ("http://", "https://", "mailto:", "tel:", "spotify:", "zoommtg:")
     ):
-      return cleaned
-    if "." in cleaned and " " not in cleaned:
-      return f"https://{cleaned}"
+      target = base
+    elif "." in base and " " not in base:
+      target = f"https://{base}"
+    else:
+      encoded_query = urllib.parse.quote(base)
+      target = f"https://www.google.com/search?q={encoded_query}"
 
-    encoded_query = urllib.parse.quote(cleaned)
-    if search_site and search_site.strip():
-      site_cleaned = search_site.strip()
-      if not site_cleaned.startswith("http"):
-        site_cleaned = f"https://{site_cleaned}"
-      return f"{site_cleaned}?q={encoded_query}"
+    # If keywords are provided, combine them into the target URL search parameter
+    if keywords and keywords.strip():
+      kw_encoded = urllib.parse.quote(keywords.strip())
+      # If the target already has query parameters or needs a search query append
+      if "?" in target:
+        target = f"{target}&q={kw_encoded}"
+      else:
+        target = f"{target}?q={kw_encoded}"
 
-    return f"https://www.google.com/search?q={encoded_query}"
+    return target
 
 
   # Fetch Data from Supabase
@@ -121,7 +128,7 @@ else:
     user_shortcuts[cat].append({
         "id": row["id"],
         "name": row["name"],
-        "search_site": row.get("search_site", ""),
+        "keywords": row.get("keywords", ""),
         "url_or_keyword": row["url_or_keyword"],
         "category": cat,
     })
@@ -130,7 +137,7 @@ else:
   if not all_categories:
     all_categories = ["General"]
 
-  # --- SIDEBAR (HAMBURGER MENU) FOR SETTINGS, ADD & EDIT ---
+  # --- SIDEBAR (HAMBURGER MENU) FOR MANAGEMENT ---
   with st.sidebar:
     st.title("⚙️ Management")
     if st.button("🚪 Log Out", use_container_width=True):
@@ -144,10 +151,8 @@ else:
     st.subheader("➕ Add New Link")
     with st.form("sidebar_add_form", clear_on_submit=True):
       new_name = st.text_input("Link Name")
-      new_search = st.text_input("Optional: Search Site URL")
-      new_kw = st.text_input("Link Key Words / Description")
+      new_kw = st.text_input("Optional: Key Words")
       new_url = st.text_input("Link URL or App")
-      # Selectbox to pick existing category or type a new one
       new_cat = st.selectbox(
           "Category", options=all_categories + ["+ Create New Category"]
       )
@@ -167,7 +172,7 @@ else:
                 "user_id": user_uuid,
                 "category": target_cat,
                 "name": new_name,
-                "search_site": new_search,
+                "keywords": new_kw,
                 "url_or_keyword": new_url,
             }).execute()
             st.success("Added successfully!")
@@ -190,8 +195,8 @@ else:
 
       with st.form("sidebar_edit_form"):
         up_name = st.text_input("Link Name", value=selected_link["name"])
-        up_search = st.text_input(
-            "Search Site", value=selected_link.get("search_site", "")
+        up_kw = st.text_input(
+            "Optional: Key Words", value=selected_link.get("keywords", "")
         )
         up_url = st.text_input(
             "URL or App", value=selected_link["url_or_keyword"]
@@ -204,7 +209,7 @@ else:
             try:
               supabase.table("shortcuts").update({
                   "name": up_name,
-                  "search_site": up_search,
+                  "keywords": up_kw,
                   "url_or_keyword": up_url,
                   "category": up_cat,
               }).eq("id", selected_link["id"]).execute()
@@ -226,7 +231,7 @@ else:
       st.info("No links available to edit.")
 
   # --- MAIN SCREEN ---
-  st.title("🌐 MyLinks Hub")
+  st.title("🌐 MyLinks")
 
   # Category Tabs across the top
   selected_cat = st.tabs(all_categories)
@@ -244,12 +249,12 @@ else:
       else:
         for link in links:
           resolved_target = resolve_input(
-              link["url_or_keyword"], link["search_site"]
+              link["url_or_keyword"], link.get("keywords", "")
           )
 
-          # Clean single-line layout utilizing a native Streamlit link button per row
+          # Display ONLY the Link Name as a clean single-line button item
           st.link_button(
-              f"🔗 {link['name']} — {link['url_or_keyword']}",
+              f"🔗 {link['name']}",
               url=resolved_target,
               use_container_width=True,
           )
